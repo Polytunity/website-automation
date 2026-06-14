@@ -1,0 +1,12 @@
+{
+  "name": "glossary-sync",
+  "version": "1.0.0",
+  "description": "Squarespace glossary → Notion database sync",
+  "main": "sync.js",
+  "scripts": {
+    "sync": "node sync.js"
+  },
+  "dependencies": {
+    "@notionhq/client": "^2.2.15"
+  }
+}
