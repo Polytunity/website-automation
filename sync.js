@@ -133,6 +133,11 @@ async function fetchFullBody(slug) {
   }
 
   const data = await res.json();
+
+  console.log("Available fields:", Object.keys(data));
+  console.log("body length:", data.body?.length);
+  console.log("body preview:", data.body?.slice(0, 500));
+
   // 'body' is the full HTML content of the post
   return stripHtml(data.body || data.excerpt || "");
 }
