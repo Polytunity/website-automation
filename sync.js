@@ -109,7 +109,11 @@ function parseInlineHtml(html) {
     const isClosing = match[1] === "/";
     if (match[2]) isBold = !isClosing;
     if (match[3]) isItalic = !isClosing;
-    if (match[4] && !isClosing) linkUrl = match[5];
+    if (match[4] && !isClosing) {
+        const href = match[5];
+        // Only use as a link if it's an absolute URL — Notion rejects relative URLs
+        linkUrl = href.startsWith("http://") || href.startsWith("https://") ? href : null;
+    }
     if (match[4] && isClosing) linkUrl = null;
     lastIndex = tokenRegex.lastIndex;
   }
