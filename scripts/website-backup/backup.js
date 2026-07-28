@@ -33,6 +33,8 @@ const DELAY_MS = 300;
 
 const notion = new Client({ auth: NOTION_BACKUP_KEY });
 
+const { htmlToNotionBlocks, toRichText, makeReplacePageBody } = require("../shared/notion-helpers");
+
 // ─── Pages to back up ──────────────────────────────────────────────────────
 
 /**
@@ -67,6 +69,8 @@ const PAGES_TO_BACKUP = new Set([
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+const replacePageBody = makeReplacePageBody(notion, sleep);
 
 /** Decode HTML entities to plain text */
 function decodeEntities(str) {
@@ -192,7 +196,8 @@ async function fetchPageContent(fullUrl) {
   if (mainMatch) content = mainMatch[1];
   else if (articleMatch) content = articleMatch[1];
 
-  // Remove script and style blocks entirely before stripping tags
+  // Remove script/style/nav/footer but KEEP structural HTML tags
+  // so htmlToNotionBlocks can parse headings, paragraphs, lists etc.
   content = content
     .replace(/<script[\s\S]*?<\/script>/gi, "")
     .replace(/<style[\s\S]*?<\/style>/gi, "")
@@ -200,13 +205,7 @@ async function fetchPageContent(fullUrl) {
     .replace(/<footer[\s\S]*?<\/footer>/gi, "")
     .replace(/<header[\s\S]*?<\/header>/gi, "");
 
-  // Strip remaining HTML tags and clean up whitespace
-  const text = decodeEntities(content)
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  return text;
+  return content; // return HTML, not stripped text
 }
 
 // ─── Notion fetching ────────────────────────────────────────────────────────
@@ -271,61 +270,45 @@ function buildProperties(title, fullUrl) {
  *   - A heading block labelling the images section
  *   - Bookmark blocks for each image URL
  */
-function buildPageBlocks(contentText, imageUrls) {
+function buildPageBlocks(contentHtml, imageUrls) {
   const blocks = [];
 
-  // ── Text content ──────────────────────────────────────────────────────────
+  // ── Text content as formatted blocks ─────────────────────────────────────
   blocks.push({
     object: "block",
     type: "heading_2",
-    heading_2: {
-      rich_text: [{ type: "text", text: { content: "Page Content" } }],
-    },
+    heading_2: { rich_text: [{ type: "text", text: { content: "Page Content" } }] },
   });
 
-  if (contentText) {
-    // Split content into 2000-char paragraph chunks
-    const CHUNK_SIZE = 1900;
-    for (let i = 0; i < contentText.length; i += CHUNK_SIZE) {
-      const chunk = contentText.slice(i, i + CHUNK_SIZE);
-      blocks.push({
-        object: "block",
-        type: "paragraph",
-        paragraph: { rich_text: toRichText(chunk) },
-      });
-    }
+  const contentBlocks = htmlToNotionBlocks(contentHtml);
+  if (contentBlocks.length > 0) {
+    blocks.push(...contentBlocks);
   } else {
     blocks.push({
       object: "block",
       type: "paragraph",
-      paragraph: {
-        rich_text: [{ type: "text", text: { content: "(No text content extracted)" } }],
-      },
+      paragraph: { rich_text: [{ type: "text", text: { content: "(No text content extracted)" } }] },
     });
   }
 
   // ── Images ────────────────────────────────────────────────────────────────
+  /*
   if (imageUrls.length > 0) {
     blocks.push({ object: "block", type: "divider", divider: {} });
     blocks.push({
       object: "block",
       type: "heading_2",
-      heading_2: {
-        rich_text: [{ type: "text", text: { content: `Images (${imageUrls.length})` } }],
-      },
+      heading_2: { rich_text: [{ type: "text", text: { content: `Images (${imageUrls.length})` } }] },
     });
-
     for (const url of imageUrls) {
       blocks.push({
         object: "block",
         type: "image",
-        image: {
-          type: "external",
-          external: { url },
-        },
+        image: { type: "external", external: { url } },
       });
     }
   }
+  */
 
   return blocks;
 }
@@ -414,7 +397,7 @@ async function backup() {
 
     // Fetch page text content
     await sleep(DELAY_MS);
-    const contentText = await fetchPageContent(fullUrl);
+    const contentHtml = await fetchPageContent(fullUrl);
 
     // Derive a readable title from the path
     const title = path
@@ -423,7 +406,7 @@ async function backup() {
       .replace(/\b\w/g, (c) => c.toUpperCase()) || "Home";
 
     // Build Notion blocks
-    const blocks = buildPageBlocks(contentText, images);
+    const blocks = buildPageBlocks(contentHtml, images);
 
     // Create or update
     const existing = existingBackups.get(path);
