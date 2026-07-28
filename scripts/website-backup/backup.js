@@ -99,22 +99,6 @@ function stripHtml(html) {
     .trim();
 }
 
-/**
- * Split a long plain-text string into Notion rich_text chunks.
- * Notion enforces a 2000-character limit per rich_text element.
- */
-function toRichText(text) {
-  const CHUNK_SIZE = 2000;
-  const chunks = [];
-  for (let i = 0; i < text.length; i += CHUNK_SIZE) {
-    chunks.push({
-      type: "text",
-      text: { content: text.slice(i, i + CHUNK_SIZE) },
-    });
-  }
-  return chunks.length > 0 ? chunks : [{ type: "text", text: { content: "" } }];
-}
-
 // ─── Sitemap parsing ────────────────────────────────────────────────────────
 
 /**
@@ -311,39 +295,6 @@ function buildPageBlocks(contentHtml, imageUrls) {
   */
 
   return blocks;
-}
-
-/**
- * Replace all blocks on an existing Notion page.
- * Deletes current blocks first, then appends new ones in batches of 100.
- */
-async function replacePageBody(pageId, blocks) {
-  // Fetch and delete existing blocks
-  let existingBlocks = [];
-  let cursor = undefined;
-  do {
-    const res = await notion.blocks.children.list({
-      block_id: pageId,
-      start_cursor: cursor,
-    });
-    existingBlocks = existingBlocks.concat(res.results);
-    cursor = res.has_more ? res.next_cursor : undefined;
-  } while (cursor);
-
-  for (const block of existingBlocks) {
-    await notion.blocks.delete({ block_id: block.id });
-    await sleep(50);
-  }
-
-  // Append new blocks in batches of 100
-  const BATCH_SIZE = 100;
-  for (let i = 0; i < blocks.length; i += BATCH_SIZE) {
-    await notion.blocks.children.append({
-      block_id: pageId,
-      children: blocks.slice(i, i + BATCH_SIZE),
-    });
-    await sleep(100);
-  }
 }
 
 async function createBackupPage(title, fullUrl, blocks) {
