@@ -45,6 +45,8 @@ const notion = new Client({ auth: NOTION_BACKUP_KEY });
 const PAGES_TO_BACKUP = new Set([
   "/home",
   "/awards",
+  "/awards-index",
+  "/book-review-index",
   "/contact",
   "/teach",
   "/inet-lecture",
@@ -56,7 +58,6 @@ const PAGES_TO_BACKUP = new Set([
   "/how-china-escaped-the-poverty-trap",
   "/china-gilded-age",
   "/glossary",
-  "/sources",
   "/directed-improvisation-with-ai",
   "/media-uptake",
 ]);
@@ -166,54 +167,46 @@ async function fetchSitemap() {
  * Returns a plain-text string of all content on the page.
  */
 async function fetchPageContent(fullUrl) {
-  const url = `${fullUrl}?format=json`;
-  const res = await fetch(url);
+  const res = await fetch(fullUrl, {
+    headers: {
+      // Fetch as a browser so Squarespace returns full HTML
+      "User-Agent": "Mozilla/5.0 (compatible; backup-bot/1.0)",
+      "Accept": "text/html",
+    },
+  });
 
   if (!res.ok) {
     console.warn(`  ⚠ Could not fetch content for ${fullUrl}: ${res.status}`);
     return "";
   }
 
-  const data = await res.json();
-  const textParts = [];
+  const html = await res.text();
 
-  // Page title
-  if (data.collection?.title) textParts.push(data.collection.title);
-  if (data.item?.title) textParts.push(data.item.title);
+  // Extract text from the main content area only — skip nav, footer, scripts
+  // Squarespace wraps page content in <main> or <article> or .sqs-layout
+  let content = html;
 
-  // Walk through content layout blocks and extract text
-  const layout = data.layout || data.page?.layout || [];
+  // Try to isolate main content block
+  const mainMatch = html.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
+  const articleMatch = html.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
+  if (mainMatch) content = mainMatch[1];
+  else if (articleMatch) content = articleMatch[1];
 
-  function extractFromBlocks(blocks) {
-    if (!Array.isArray(blocks)) return;
-    for (const block of blocks) {
-      // Text/HTML blocks
-      if (block.type === "text" && block.value) {
-        textParts.push(stripHtml(block.value));
-      }
-      // Image alt text
-      if (block.type === "image" && block.value?.altText) {
-        textParts.push(`[Image: ${block.value.altText}]`);
-      }
-      // Video blocks
-      if (block.type === "video" && block.value?.title) {
-        textParts.push(`[Video: ${block.value.title}]`);
-      }
-      // Recurse into nested rows/columns
-      if (block.rows) extractFromBlocks(block.rows);
-      if (block.columns) extractFromBlocks(block.columns);
-      if (block.blocks) extractFromBlocks(block.blocks);
-    }
-  }
+  // Remove script and style blocks entirely before stripping tags
+  content = content
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<nav[\s\S]*?<\/nav>/gi, "")
+    .replace(/<footer[\s\S]*?<\/footer>/gi, "")
+    .replace(/<header[\s\S]*?<\/header>/gi, "");
 
-  extractFromBlocks(layout);
+  // Strip remaining HTML tags and clean up whitespace
+  const text = decodeEntities(content)
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
-  // Also try the simpler body field if layout parsing yields nothing
-  if (textParts.length === 0 && data.item?.body) {
-    textParts.push(stripHtml(data.item.body));
-  }
-
-  return textParts.filter(Boolean).join("\n\n");
+  return text;
 }
 
 // ─── Notion fetching ────────────────────────────────────────────────────────
