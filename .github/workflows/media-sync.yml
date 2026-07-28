@@ -1,4 +1,4 @@
-name: Squarespace → Notion Glossary Sync
+name: Squarespace → Notion Media & Uptake Sync
 
 on:
   # Runs every day at 8:00 AM UTC
@@ -25,9 +25,9 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Run glossary sync
+      - name: Run media & uptake sync
         env:
-          NOTION_GLOSSARY_KEY: ${{ secrets.NOTION_GLOSSARY_KEY }}
+          NOTION_MEDIA_KEY: ${{ secrets.NOTION_MEDIA_KEY }}
           SQUARESPACE_URL: ${{ secrets.SQUARESPACE_URL }}
-          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
-        run: node scripts/glossary-sync/sync.js
+          NOTION_MEDIA_DB_ID: ${{ secrets.NOTION_MEDIA_DB_ID }}
+        run: node scripts/media-sync/media-sync.js
