@@ -1,0 +1,33 @@
+name: Squarespace → Notion Website Backup
+
+on:
+  # Runs on the 1st of every other month at 9:00 AM UTC
+  # Months: January, March, May, July, September, November
+  schedule:
+    - cron: "0 9 1 1,3,5,7,9,11 *"
+
+  # Manual trigger for running the first backup or forcing a refresh
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run website backup
+        env:
+          NOTION_BACKUP_KEY: ${{ secrets.NOTION_BACKUP_KEY }}
+          NOTION_BACKUP_DB_ID: ${{ secrets.NOTION_BACKUP_DB_ID }}
+          SQUARESPACE_URL: ${{ secrets.SQUARESPACE_URL }}
+        run: node scripts/website-backup/backup.js
