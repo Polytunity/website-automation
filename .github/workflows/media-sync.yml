@@ -6,7 +6,7 @@ on:
     - cron: "0 8 * * *"
 
   # Allows you to trigger the sync manually from the GitHub Actions tab
-  # useful for testing or forcing a sync after a big glossary update
+  # useful for testing or forcing a sync after a big media & uptake page update
   workflow_dispatch:
 
 jobs:

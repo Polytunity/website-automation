@@ -14,7 +14,7 @@
  * Environment variables (set as GitHub Actions secrets):
  *   NOTION_MEDIA_KEY          – Notion integration secret for media & uptake database
  *   SQUARESPACE_URL     – base URL, e.g. https://yuen-yuen-ang.squarespace.com (no trailing slash)
- *   NOTION_DATABASE_ID  – your Notion database ID
+ *   NOTION_MEDIA_DB_ID  – your Notion database ID
  */
 
 const { Client } = require("@notionhq/client"); // Notion SDK
@@ -127,7 +127,7 @@ async function fetchNotionRows() {
 
   do {
     const response = await notion.databases.query({
-      database_id: NOTION_DATABASE_ID,
+      database_id: NOTION_MEDIA_DB_ID,
       start_cursor: cursor,
       page_size: 100,
     });
